@@ -156,11 +156,12 @@ hr.sec{border:none;border-top:1px solid var(--border);margin:20px 0;}
 <script>
 const FIXED_COSTS = [
   ["Driver salary", 18000],["Your salary", 18000],["EMI", 12000],
-  ["Office + utilities", 6900],["Police", 1500],["Misc + bribe", 2000],
+  ["Office + utilities", 9000],["Police", 1500],["Misc + bribe", 2000],
   ["Tyre", 2000],["Insurance", 1700],["Maintenance + repair", 10000]
 ];
-const FIXED_TOTAL = 72100;
+const FIXED_TOTAL = 74200;
 const MY_SALARY = 18000;
+const EXTRA_TAKEHOME = 5000;
 const FOOD_RATE = 200;
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const YEARS = ["2026","2027"];
@@ -242,7 +243,7 @@ function renderMonth(k){
     <div class="card-title">Duties</div>
     <div class="form-grid">
       <div class="field input-highlight"><label>Vehicle duties</label><input type="number" id="vDuties" value="${inp.vDuties||''}" placeholder="e.g. 15"/><span class="tag">Fuel + maintenance + toll</span></div>
-      <div class="field input-highlight"><label>Bus duties</label><input type="number" id="bDuties" value="${inp.bDuties||''}" placeholder="e.g. 8"/><span class="tag">Bus ticket + convenience</span></div>
+      <div class="field input-highlight"><label>Bus duties</label><input type="number" id="bDuties" value="${inp.bDuties||''}" placeholder="e.g. 8"/><span class="tag">Bus expenses combined</span></div>
       <div class="field input-highlight"><label>Hired duties</label><input type="number" id="hDuties" value="${inp.hDuties||''}" placeholder="e.g. 1"/><span class="tag">Hiring charges only</span></div>
     </div>
   </div>
@@ -253,8 +254,7 @@ function renderMonth(k){
       <div class="field input-highlight"><label>Fuel (₹)</label><input type="number" id="fuel" value="${inp.fuel||''}" placeholder="vehicle only"/></div>
       <div class="field input-highlight"><label>Variable maintenance (₹)</label><input type="number" id="vmaint" value="${inp.vmaint||''}" placeholder="vehicle only"/></div>
       <div class="field input-highlight"><label>Toll & taxes (₹)</label><input type="number" id="toll" value="${inp.toll||''}" placeholder="vehicle only"/></div>
-      <div class="field input-highlight"><label>Bus tickets (₹)</label><input type="number" id="busTicket" value="${inp.busTicket||''}" placeholder="bus only"/></div>
-      <div class="field input-highlight"><label>Convenience charges (₹)</label><input type="number" id="conv" value="${inp.conv||''}" placeholder="bus only"/></div>
+      <div class="field input-highlight"><label>Bus expenses (₹)</label><input type="number" id="busExp" value="${inp.busExp||''}" placeholder="tickets + convenience"/></div>
       <div class="field input-highlight"><label>Hiring charges (₹)</label><input type="number" id="hire" value="${inp.hire||''}" placeholder="hired only"/></div>
     </div>
     <div style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:var(--radius);font-size:12px;color:var(--text3);">
@@ -282,9 +282,9 @@ function calculate(k){
   const baseRev=g('baseRev'), addonRev=g('addonRev');
   const vD=g('vDuties'), bD=g('bDuties'), hD=g('hDuties');
   const fuel=g('fuel'), vmaint=g('vmaint'), toll=g('toll');
-  const busTicket=g('busTicket'), conv=g('conv'), hire=g('hire');
+  const busTicket=g('busExp'), conv=0, hire=g('hire');
 
-  state.months[k].inputs = {baseRev,addonRev,vD,bD,hD,fuel,vmaint,toll,busTicket,conv,hire};
+  state.months[k].inputs = {baseRev,addonRev,vD,bD,hD,fuel,vmaint,toll,busExp:busTicket,hire};
 
   const totalDuties = vD+bD+hD;
   if(totalDuties===0){ alert('Enter at least one duty.'); return; }
@@ -298,7 +298,7 @@ function calculate(k){
   const totalVar = vVar+bVar+hVar;
   const netProfit = totalRev-FIXED_TOTAL-totalVar;
   const netMargin = (netProfit/totalRev)*100;
-  const effectiveTakeHome = netProfit+MY_SALARY;
+  const effectiveTakeHome = netProfit+MY_SALARY+EXTRA_TAKEHOME;
   const fixedPerDuty = FIXED_TOTAL/totalDuties;
   const revPerDuty = totalRev/totalDuties;
   const safeV = vD||1, safeB = bD||1, safeH = hD||1;
@@ -344,7 +344,7 @@ function renderOutput(k,r){
     <div class="metric"><div class="lbl">Total revenue</div><div class="val green">${fmt(r.totalRev)}</div><div class="sub">after 1% deduction</div></div>
     <div class="metric"><div class="lbl">Total costs</div><div class="val red">${fmt(FIXED_TOTAL+r.totalVar)}</div><div class="sub">fixed + variable</div></div>
     <div class="metric"><div class="lbl">Net profit</div><div class="val ${r.netProfit>=0?'green':'red'}">${fmt(r.netProfit)}</div><div class="sub">${pct(r.netMargin)} margin</div></div>
-    <div class="metric"><div class="lbl">Effective take-home</div><div class="val green">${fmt(r.effectiveTakeHome)}</div><div class="sub">profit + salary ₹18,000</div></div>
+    <div class="metric"><div class="lbl">Effective take-home</div><div class="val green">${fmt(r.effectiveTakeHome)}</div><div class="sub">profit + salary + ₹5,000</div></div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
