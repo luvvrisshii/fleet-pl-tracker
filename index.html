@@ -5,7 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Fleet P&L Tracker</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
+@media print{
+  .topbar,.sidebar,.btn-primary,.btn-danger,.add-btn,.month-btn,.summary-btn,#download-btn{display:none!important;}
+  .content{padding:0!important;}
+  .card{break-inside:avoid;border:1px solid #ccc!important;}
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
   --bg:#ffffff;--bg2:#f5f5f2;--bg3:#eeecea;
@@ -164,7 +170,7 @@ const MY_SALARY = 18000;
 const EXTRA_TAKEHOME = 5000;
 const FOOD_RATE = 200;
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const YEARS = ["2026","2027"];
+const YEARS = ["2024","2025","2026","2027"];
 
 let state = loadState();
 let activeMonth = null;
@@ -340,11 +346,16 @@ function renderOutput(k,r){
 
   return `
   <hr class="sec"/>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div style="font-size:13px;color:var(--text3);">P&L result for <strong style="color:var(--navy);">${k}</strong></div>
+    <button id="download-btn" onclick="downloadPDF('${k}')" style="padding:8px 16px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;">Download JPG</button>
+  </div>
+  <div id="pdf-content-${k}">
   <div class="metric-grid">
     <div class="metric"><div class="lbl">Total revenue</div><div class="val green">${fmt(r.totalRev)}</div><div class="sub">after 1% deduction</div></div>
-    <div class="metric"><div class="lbl">Total costs</div><div class="val red">${fmt(FIXED_TOTAL+r.totalVar)}</div><div class="sub">fixed + variable</div></div>
-    <div class="metric"><div class="lbl">Net profit</div><div class="val ${r.netProfit>=0?'green':'red'}">${fmt(r.netProfit)}</div><div class="sub">${pct(r.netMargin)} margin</div></div>
-    <div class="metric"><div class="lbl">Effective take-home</div><div class="val green">${fmt(r.effectiveTakeHome)}</div><div class="sub">profit + salary + ₹5,000</div></div>
+    <div class="metric"><div class="lbl">Total costs</div><div class="val red">${fmt(FIXED_TOTAL+r.totalVar)}</div><div class="sub">${pct((FIXED_TOTAL+r.totalVar)/r.totalRev*100)} of revenue</div></div>
+    <div class="metric"><div class="lbl">Net profit</div><div class="val ${r.netProfit>=0?'green':'red'}">${fmt(r.netProfit)}</div><div class="sub">${pct(r.netMargin)} of revenue</div></div>
+    <div class="metric"><div class="lbl">Effective take-home</div><div class="val green">${fmt(r.effectiveTakeHome)}</div><div class="sub">${pct(r.effectiveTakeHome/r.totalRev*100)} of revenue &nbsp;·&nbsp; profit + salary + ₹5k</div></div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
@@ -386,7 +397,37 @@ function renderOutput(k,r){
       </div>`).join('')}
     </div>
   </div>
+  </div>
   `;
+}
+
+function downloadPDF(k){
+  const el = document.getElementById(`pdf-content-${k}`);
+  if(!el){ alert('Calculate first.'); return; }
+  const btn = document.getElementById('download-btn');
+  btn.textContent = 'Generating...';
+  btn.disabled = true;
+  html2canvas(el, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    scrollX: 0,
+    scrollY: -window.scrollY,
+    windowWidth: el.scrollWidth,
+    width: el.scrollWidth,
+    height: el.scrollHeight
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = `Fleet_PL_${k.replace(' ','_')}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+    btn.textContent = 'Download JPG';
+    btn.disabled = false;
+  }).catch(err => {
+    alert('Export failed: ' + err.message);
+    btn.textContent = 'Download JPG';
+    btn.disabled = false;
+  });
 }
 
 function deleteMonth(k){
