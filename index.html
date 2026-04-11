@@ -170,7 +170,7 @@ const MY_SALARY = 18000;
 const EXTRA_TAKEHOME = 5000;
 const FOOD_RATE = 200;
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const YEARS = ["2024","2025","2026","2027"];
+const YEARS = ["2026","2027"];
 
 let state = loadState();
 let activeMonth = null;
@@ -246,25 +246,32 @@ function renderMonth(k){
   </div>
 
   <div class="card">
-    <div class="card-title">Duties</div>
+    <div class="card-title">Own duties</div>
     <div class="form-grid">
-      <div class="field input-highlight"><label>Vehicle duties</label><input type="number" id="vDuties" value="${inp.vDuties||''}" placeholder="e.g. 15"/><span class="tag">Fuel + maintenance + toll</span></div>
-      <div class="field input-highlight"><label>Bus duties</label><input type="number" id="bDuties" value="${inp.bDuties||''}" placeholder="e.g. 8"/><span class="tag">Bus expenses combined</span></div>
-      <div class="field input-highlight"><label>Hired duties</label><input type="number" id="hDuties" value="${inp.hDuties||''}" placeholder="e.g. 1"/><span class="tag">Hiring charges only</span></div>
+      <div class="field input-highlight"><label>Vehicle duties</label><input type="number" id="vDuties" value="${inp.vDuties||''}" placeholder="e.g. 10"/><span class="tag">Fuel + maintenance + toll</span></div>
+      <div class="field input-highlight"><label>Bus duties</label><input type="number" id="bDuties" value="${inp.bDuties||''}" placeholder="e.g. 2"/><span class="tag">Bus expenses combined</span></div>
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">Variable costs</div>
+    <div class="card-title">Variable costs (own duties)</div>
     <div class="form-grid">
       <div class="field input-highlight"><label>Fuel (₹)</label><input type="number" id="fuel" value="${inp.fuel||''}" placeholder="vehicle only"/></div>
       <div class="field input-highlight"><label>Variable maintenance (₹)</label><input type="number" id="vmaint" value="${inp.vmaint||''}" placeholder="vehicle only"/></div>
       <div class="field input-highlight"><label>Toll & taxes (₹)</label><input type="number" id="toll" value="${inp.toll||''}" placeholder="vehicle only"/></div>
       <div class="field input-highlight"><label>Bus expenses (₹)</label><input type="number" id="busExp" value="${inp.busExp||''}" placeholder="tickets + convenience"/></div>
-      <div class="field input-highlight"><label>Hiring charges (₹)</label><input type="number" id="hire" value="${inp.hire||''}" placeholder="hired only"/></div>
     </div>
     <div style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:var(--radius);font-size:12px;color:var(--text3);">
-      Food is auto-calculated: ₹200 × (vehicle + bus duties)
+      Food auto-calculated: ₹200 × (vehicle + bus duties)
+    </div>
+  </div>
+
+  <div class="card" style="border:1.5px dashed var(--border2);">
+    <div class="card-title" style="color:var(--amber);">Hired duties — bonus income <span style="font-weight:400;font-size:11px;color:var(--text3);">(kept separate from main P&L)</span></div>
+    <div class="form-grid">
+      <div class="field input-highlight"><label>No. of hired duties</label><input type="number" id="hDuties" value="${inp.hDuties||''}" placeholder="e.g. 3"/></div>
+      <div class="field input-highlight"><label>Total bill raised (₹)</label><input type="number" id="hBill" value="${inp.hBill||''}" placeholder="e.g. 50000"/><span class="tag">What you charged the client</span></div>
+      <div class="field input-highlight"><label>Total hiring cost (₹)</label><input type="number" id="hCost" value="${inp.hCost||''}" placeholder="e.g. 30000"/><span class="tag">What you paid the vehicle owner</span></div>
     </div>
   </div>
 
@@ -286,50 +293,66 @@ function g(id){ return parseFloat(document.getElementById(id).value)||0; }
 
 function calculate(k){
   const baseRev=g('baseRev'), addonRev=g('addonRev');
-  const vD=g('vDuties'), bD=g('bDuties'), hD=g('hDuties');
+  const vD=g('vDuties'), bD=g('bDuties');
+  const hD=g('hDuties'), hBill=g('hBill'), hCost=g('hCost');
   const fuel=g('fuel'), vmaint=g('vmaint'), toll=g('toll');
-  const busTicket=g('busExp'), conv=0, hire=g('hire');
+  const busTicket=g('busExp'), conv=0;
 
-  state.months[k].inputs = {baseRev,addonRev,vD,bD,hD,fuel,vmaint,toll,busExp:busTicket,hire};
+  state.months[k].inputs = {baseRev,addonRev,vD,bD,hD,hBill,hCost,fuel,vmaint,toll,busExp:busTicket};
 
-  const totalDuties = vD+bD+hD;
-  if(totalDuties===0){ alert('Enter at least one duty.'); return; }
+  const ownDuties = vD+bD;
+  if(ownDuties===0 && hD===0){ alert('Enter at least one duty.'); return; }
+  if(ownDuties===0 && hD>0){ alert('Enter at least one own duty (vehicle or bus).'); return; }
 
+  const safeOwn = ownDuties||1;
+  const safeV = vD||1, safeB = bD||1;
+
+  // ── OWN DUTIES P&L (vehicle + bus only) ────────────────────────────────
   const totalRev = (baseRev+addonRev)*0.99;
-  const food = totalDuties*FOOD_RATE;
-  const vFood = vD*FOOD_RATE, bFood = bD*FOOD_RATE;
-  const vVar = fuel+vmaint+toll+vFood;
-  const bVar = busTicket+conv+bFood;
-  const hVar = hire;
-  const totalVar = vVar+bVar+hVar;
-  const netProfit = totalRev-FIXED_TOTAL-totalVar;
-  const netMargin = (netProfit/totalRev)*100;
-  const effectiveTakeHome = netProfit+MY_SALARY+EXTRA_TAKEHOME;
-  const fixedPerDuty = FIXED_TOTAL/totalDuties;
-  const revPerDuty = totalRev/totalDuties;
-  const safeV = vD||1, safeB = bD||1, safeH = hD||1;
-  const vVarPD = vVar/safeV, bVarPD = bVar/safeB, hVarPD = hVar/safeH;
-  const avgVarPD = totalVar/totalDuties;
+  const food     = ownDuties * FOOD_RATE;
+  const vVar     = fuel + vmaint + toll + (vD * FOOD_RATE);
+  const bVar     = busTicket + conv + (bD * FOOD_RATE);
+  const ownVar   = vVar + bVar;
+  const netProfit   = totalRev - FIXED_TOTAL - ownVar;
+  const netMargin   = (netProfit / totalRev) * 100;
+  const effectiveProfit = netProfit + MY_SALARY + EXTRA_TAKEHOME;  // renamed
+
+  // Per-duty (own only)
+  const fixedPerDuty = FIXED_TOTAL / safeOwn;
+  const revPerDuty   = totalRev / safeOwn;
+  const avgVarPD     = ownVar / safeOwn;
+  const vVarPD = vVar / safeV;
+  const bVarPD = bVar / safeB;
+
+  // ── HIRED DUTIES — BONUS (completely separate) ─────────────────────────
+  const hProfit    = hBill - hCost;          // total hired profit
+  const hMargin    = hBill > 0 ? (hProfit / hBill) * 100 : 0;
+  const hProfitPD  = hD > 0 ? hProfit / hD : 0;
+
+  // ── EFFECTIVE TAKE-HOME = effectiveProfit + hired bonus ────────────────
+  const effectiveTakeHome = effectiveProfit + hProfit;
 
   const r = {
-    totalRev,totalVar,vVar,bVar,hVar,food,netProfit,netMargin,effectiveTakeHome,
-    fixedPerDuty,revPerDuty,totalDuties,vD,bD,hD,
-    vVarPD,bVarPD,hVarPD,avgVarPD,
-    vTotalPD:vVarPD+fixedPerDuty,
-    bTotalPD:bVarPD+fixedPerDuty,
-    hTotalPD:hVarPD+fixedPerDuty,
-    avgTotalPD:avgVarPD+fixedPerDuty,
-    vProfitPD:revPerDuty-(vVarPD+fixedPerDuty),
-    bProfitPD:revPerDuty-(bVarPD+fixedPerDuty),
-    hProfitPD:revPerDuty-(hVarPD+fixedPerDuty),
-    avgProfitPD:revPerDuty-(avgVarPD+fixedPerDuty),
-    breakEvenPD:fixedPerDuty+avgVarPD,
-    breakEvenTotal:(fixedPerDuty+avgVarPD)*totalDuties
+    // own P&L
+    totalRev, ownVar, vVar, bVar, food,
+    netProfit, netMargin, effectiveProfit, effectiveTakeHome,
+    // own per-duty
+    fixedPerDuty, revPerDuty, ownDuties, vD, bD,
+    vVarPD, bVarPD, avgVarPD,
+    vTotalPD  : vVarPD + fixedPerDuty,
+    bTotalPD  : bVarPD + fixedPerDuty,
+    avgTotalPD: avgVarPD + fixedPerDuty,
+    vProfitPD : revPerDuty - (vVarPD + fixedPerDuty),
+    bProfitPD : revPerDuty - (bVarPD + fixedPerDuty),
+    avgProfitPD: revPerDuty - (avgVarPD + fixedPerDuty),
+    breakEvenPD   : fixedPerDuty + avgVarPD,
+    breakEvenTotal: (fixedPerDuty + avgVarPD) * safeOwn,
+    // hired bonus
+    hD, hBill, hCost, hProfit, hMargin, hProfitPD,
   };
-  r.vProfitPct=(r.vProfitPD/revPerDuty)*100;
-  r.bProfitPct=(r.bProfitPD/revPerDuty)*100;
-  r.hProfitPct=(r.hProfitPD/revPerDuty)*100;
-  r.avgProfitPct=(r.avgProfitPD/revPerDuty)*100;
+  r.vProfitPct   = (r.vProfitPD   / revPerDuty) * 100;
+  r.bProfitPct   = (r.bProfitPD   / revPerDuty) * 100;
+  r.avgProfitPct = (r.avgProfitPD / revPerDuty) * 100;
 
   state.months[k].result = r;
   saveState();
@@ -337,11 +360,10 @@ function calculate(k){
 }
 
 function renderOutput(k,r){
-  const dutyCards = [
-    {title:`Overall avg (${r.totalDuties} duties)`, vPD:r.avgVarPD, tPD:r.avgTotalPD, prPD:r.avgProfitPD, prPct:r.avgProfitPct, show:true},
-    {title:`Vehicle duties (${r.vD})`, vPD:r.vVarPD, tPD:r.vTotalPD, prPD:r.vProfitPD, prPct:r.vProfitPct, show:r.vD>0},
-    {title:`Bus duties (${r.bD})`, vPD:r.bVarPD, tPD:r.bTotalPD, prPD:r.bProfitPD, prPct:r.bProfitPct, show:r.bD>0},
-    {title:`Hired duties (${r.hD})`, vPD:r.hVarPD, tPD:r.hTotalPD, prPD:r.hProfitPD, prPct:r.hProfitPct, show:r.hD>0},
+  const ownDutyCards = [
+    {title:`Overall avg (${r.ownDuties} own duties)`, vPD:r.avgVarPD, tPD:r.avgTotalPD, prPD:r.avgProfitPD, prPct:r.avgProfitPct, show:r.ownDuties>0},
+    {title:`Vehicle duties (${r.vD})`,                vPD:r.vVarPD,   tPD:r.vTotalPD,   prPD:r.vProfitPD,   prPct:r.vProfitPct,   show:r.vD>0},
+    {title:`Bus duties (${r.bD})`,                    vPD:r.bVarPD,   tPD:r.bTotalPD,   prPD:r.bProfitPD,   prPct:r.bProfitPct,   show:r.bD>0},
   ].filter(d=>d.show);
 
   return `
@@ -351,41 +373,97 @@ function renderOutput(k,r){
     <button id="download-btn" onclick="downloadPDF('${k}')" style="padding:8px 16px;background:var(--navy);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:13px;font-weight:600;">Download JPG</button>
   </div>
   <div id="pdf-content-${k}">
+
+  <!-- ── TOP METRICS (own duties only) ── -->
   <div class="metric-grid">
-    <div class="metric"><div class="lbl">Total revenue</div><div class="val green">${fmt(r.totalRev)}</div><div class="sub">after 1% deduction</div></div>
-    <div class="metric"><div class="lbl">Total costs</div><div class="val red">${fmt(FIXED_TOTAL+r.totalVar)}</div><div class="sub">${pct((FIXED_TOTAL+r.totalVar)/r.totalRev*100)} of revenue</div></div>
-    <div class="metric"><div class="lbl">Net profit</div><div class="val ${r.netProfit>=0?'green':'red'}">${fmt(r.netProfit)}</div><div class="sub">${pct(r.netMargin)} of revenue</div></div>
-    <div class="metric"><div class="lbl">Effective take-home</div><div class="val green">${fmt(r.effectiveTakeHome)}</div><div class="sub">${pct(r.effectiveTakeHome/r.totalRev*100)} of revenue &nbsp;·&nbsp; profit + salary + ₹5k</div></div>
+    <div class="metric">
+      <div class="lbl">Total revenue</div>
+      <div class="val green">${fmt(r.totalRev)}</div>
+      <div class="sub">own duties · after 1% deduction</div>
+    </div>
+    <div class="metric">
+      <div class="lbl">Total costs</div>
+      <div class="val red">${fmt(FIXED_TOTAL + r.ownVar)}</div>
+      <div class="sub">${pct((FIXED_TOTAL + r.ownVar) / r.totalRev * 100)} of revenue</div>
+    </div>
+    <div class="metric">
+      <div class="lbl">Net profit</div>
+      <div class="val ${r.netProfit>=0?'green':'red'}">${fmt(r.netProfit)}</div>
+      <div class="sub">${pct(r.netMargin)} of revenue · own duties</div>
+    </div>
+    <div class="metric">
+      <div class="lbl">Effective profit</div>
+      <div class="val green">${fmt(r.effectiveProfit)}</div>
+      <div class="sub">net profit + salary + ₹5k · excl. hired bonus</div>
+    </div>
   </div>
 
+  <!-- ── HIRED BONUS BANNER (only if hired duties entered) ── -->
+  ${r.hD > 0 ? `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+    <div style="background:var(--amber-bg);border:1.5px solid #D4972A;border-radius:var(--radius-lg);padding:16px 20px;">
+      <div style="font-size:11px;font-weight:600;color:var(--amber);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">
+        Hired duties bonus — ${r.hD} dut${r.hD>1?'ies':'y'}
+      </div>
+      <table class="tbl" style="font-size:13px;">
+        <tr><td>Bill raised</td><td style="text-align:right;font-weight:600;">${fmt(r.hBill)}</td></tr>
+        <tr style="background:rgba(0,0,0,0.04)"><td>Hiring cost</td><td style="text-align:right;font-weight:600;">${fmt(r.hCost)}</td></tr>
+        <tr><td>Profit / duty</td><td style="text-align:right;font-weight:600;">${fmt(r.hProfitPD)}</td></tr>
+        <tr style="background:var(--amber);border-radius:4px;">
+          <td style="color:#fff;font-weight:700;">Bonus profit</td>
+          <td style="text-align:right;color:#fff;font-weight:700;">${fmt(r.hProfit)} <span style="font-weight:400;">(${pct(r.hMargin)})</span></td>
+        </tr>
+      </table>
+    </div>
+    <div style="background:var(--green-bg);border:1.5px solid #7AAD45;border-radius:var(--radius-lg);padding:16px 20px;">
+      <div style="font-size:11px;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">
+        Effective take-home
+      </div>
+      <div style="font-size:28px;font-weight:700;color:var(--green);margin-bottom:6px;">${fmt(r.effectiveTakeHome)}</div>
+      <table class="tbl" style="font-size:12px;color:var(--text2);">
+        <tr><td>Effective profit</td><td style="text-align:right;">${fmt(r.effectiveProfit)}</td></tr>
+        <tr style="background:rgba(0,0,0,0.04)"><td>+ Hired bonus</td><td style="text-align:right;">${fmt(r.hProfit)}</td></tr>
+      </table>
+      <div style="margin-top:8px;font-size:11px;color:var(--green);">profit + salary + ₹5k + hired bonus</div>
+    </div>
+  </div>` : `
+  <div class="metric-grid" style="margin-bottom:16px;">
+    <div class="metric" style="background:var(--green-bg);border:1px solid #7AAD45;">
+      <div class="lbl" style="color:var(--green);">Effective take-home</div>
+      <div class="val green">${fmt(r.effectiveTakeHome)}</div>
+      <div class="sub">profit + salary + ₹5k</div>
+    </div>
+  </div>`}
+
+  <!-- ── COST BREAKDOWN + BREAK-EVEN ── -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
     <div class="card" style="margin:0;">
-      <div class="card-title">Cost breakdown</div>
+      <div class="card-title">Cost breakdown — own duties</div>
       <table class="tbl">
         <tr><td>Fixed costs</td><td>${fmt(FIXED_TOTAL)} <span style="color:var(--text3);font-weight:400;">(${pct(FIXED_TOTAL/r.totalRev*100)})</span></td></tr>
         <tr style="background:var(--bg2)"><td>Vehicle variable</td><td>${fmt(r.vVar)} <span style="color:var(--text3);font-weight:400;">(${pct(r.vVar/r.totalRev*100)})</span></td></tr>
         <tr><td>Bus variable</td><td>${fmt(r.bVar)} <span style="color:var(--text3);font-weight:400;">(${pct(r.bVar/r.totalRev*100)})</span></td></tr>
-        <tr style="background:var(--bg2)"><td>Hired variable</td><td>${fmt(r.hVar)} <span style="color:var(--text3);font-weight:400;">(${pct(r.hVar/r.totalRev*100)})</span></td></tr>
-        <tr><td>Food (auto)</td><td>${fmt(r.food)}</td></tr>
-        <tr class="teal-row"><td>Total variable</td><td>${fmt(r.totalVar)} <span style="font-weight:400;">(${pct(r.totalVar/r.totalRev*100)})</span></td></tr>
+        <tr style="background:var(--bg2)"><td>Food (auto)</td><td>${fmt(r.food)}</td></tr>
+        <tr class="teal-row"><td>Total variable</td><td>${fmt(r.ownVar)} <span style="font-weight:400;">(${pct(r.ownVar/r.totalRev*100)})</span></td></tr>
       </table>
     </div>
     <div class="card" style="margin:0;">
-      <div class="card-title">Break-even</div>
+      <div class="card-title">Break-even — own duties</div>
       <table class="tbl">
         <tr><td>Fixed / duty</td><td>${fmt(r.fixedPerDuty)}</td></tr>
         <tr style="background:var(--bg2)"><td>Avg variable / duty</td><td>${fmt(r.avgVarPD)}</td></tr>
         <tr class="amber-row"><td>Break-even / duty</td><td>${fmt(r.breakEvenPD)}</td></tr>
         <tr><td>Break-even revenue</td><td>${fmt(r.breakEvenTotal)}</td></tr>
-        <tr class="${r.netProfit>=0?'':''}"><td>Above break-even</td><td class="${r.netProfit>=0?'green':'red'}">${fmt(Math.abs(r.netProfit))}</td></tr>
+        <tr><td>Above break-even</td><td class="${r.netProfit>=0?'green':'red'}">${fmt(Math.abs(r.netProfit))}</td></tr>
       </table>
     </div>
   </div>
 
+  <!-- ── PER DUTY ANALYSIS — OWN ONLY ── -->
   <div class="card">
     <div class="card-title">Per duty analysis — avg revenue/duty: ${fmt(r.revPerDuty)}</div>
     <div class="duty-grid">
-      ${dutyCards.map(d=>`
+      ${ownDutyCards.map(d=>`
       <div class="duty-card">
         <div class="dtitle">${d.title}</div>
         <table class="tbl" style="font-size:12px;">
@@ -397,6 +475,7 @@ function renderOutput(k,r){
       </div>`).join('')}
     </div>
   </div>
+
   </div>
   `;
 }
@@ -462,6 +541,7 @@ function showSummary(){
         <td style="text-align:right;font-weight:600;color:#fff;">Variable</td>
         <td style="text-align:right;font-weight:600;color:#fff;">Net profit</td>
         <td style="text-align:right;font-weight:600;color:#fff;">Margin</td>
+        <td style="text-align:right;font-weight:600;color:#fff;">Hired bonus</td>
         <td style="text-align:right;font-weight:600;color:#fff;">Take-home</td>
       </tr>
       ${months.map((k,i)=>{
@@ -470,9 +550,10 @@ function showSummary(){
           <td style="font-weight:600;">${k}</td>
           <td>${fmt(r.totalRev)}</td>
           <td>${fmt(FIXED_TOTAL)}</td>
-          <td>${fmt(r.totalVar)}</td>
+          <td>${fmt(r.ownVar)}</td>
           <td class="${r.netProfit>=0?'green':'red'}">${fmt(r.netProfit)}</td>
           <td class="${r.netMargin>=0?'green':'red'}">${pct(r.netMargin)}</td>
+          <td class="${r.hProfit>0?'amber':''}">${r.hD>0?fmt(r.hProfit):'—'}</td>
           <td class="green">${fmt(r.effectiveTakeHome)}</td>
         </tr>`;
       }).join('')}
@@ -480,9 +561,10 @@ function showSummary(){
         <td>Total</td>
         <td>${fmt(months.reduce((s,k)=>s+state.months[k].result.totalRev,0))}</td>
         <td>${fmt(months.length*FIXED_TOTAL)}</td>
-        <td>${fmt(months.reduce((s,k)=>s+state.months[k].result.totalVar,0))}</td>
+        <td>${fmt(months.reduce((s,k)=>s+state.months[k].result.ownVar,0))}</td>
         <td>${fmt(months.reduce((s,k)=>s+state.months[k].result.netProfit,0))}</td>
         <td>${pct(months.reduce((s,k)=>s+state.months[k].result.netMargin,0)/months.length)}</td>
+        <td>${fmt(months.reduce((s,k)=>s+(state.months[k].result.hProfit||0),0))}</td>
         <td>${fmt(months.reduce((s,k)=>s+state.months[k].result.effectiveTakeHome,0))}</td>
       </tr>
     </table>
@@ -505,7 +587,7 @@ function showSummary(){
       labels:months,
       datasets:[
         {label:'Revenue',data:months.map(k=>Math.round(state.months[k].result.totalRev)),backgroundColor:'#1D9E75'},
-        {label:'Total costs',data:months.map(k=>Math.round(FIXED_TOTAL+state.months[k].result.totalVar)),backgroundColor:'#E24B4A'},
+        {label:'Total costs',data:months.map(k=>Math.round(FIXED_TOTAL+state.months[k].result.ownVar)),backgroundColor:'#E24B4A'},
         {label:'Net profit',data:months.map(k=>Math.round(state.months[k].result.netProfit)),backgroundColor:'#378ADD'},
       ]
     },
