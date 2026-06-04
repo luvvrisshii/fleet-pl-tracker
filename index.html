@@ -163,7 +163,8 @@ hr.sec{border:none;border-top:1px solid var(--border);margin:20px 0;}
 const FIXED_COSTS = [
   ["Driver salary", 18000],["Your salary", 18000],["EMI", 12000],
   ["Office + utilities", 9000],["Police", 1500],["Misc + bribe", 2000],
-  ["Tyre", 2000],["Insurance", 1700],["Maintenance + repair", 10000]
+  ["Tyre", 2000],["Insurance", 1700],["Maintenance + repair", 10000],
+  ["Backlog EMI", 30000]
 ];
 const FIXED_TOTAL = 74200;
 const MY_SALARY = 18000;
@@ -276,7 +277,7 @@ function renderMonth(k){
   </div>
 
   <div class="card" style="background:var(--bg2);">
-    <div class="card-title">Fixed costs (reference — hardcoded)</div>
+    <div class="card-title">Fixed costs</div>
     <table class="tbl fixed-table">
       ${FIXED_COSTS.map((fc,i)=>`<tr style="background:${i%2===0?'var(--bg2)':'var(--bg)'}"><td>${fc[0]}</td><td>${fmt(fc[1])}</td></tr>`).join('')}
       <tr class="teal-row"><td>Total fixed</td><td>${fmt(FIXED_TOTAL)}</td></tr>
